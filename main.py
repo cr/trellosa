@@ -44,8 +44,8 @@ def main(argv):
 
     tr.set_token(user_token)
 
-    board_id = "5887b9767bc90fd832e669f8"
-    board = tr.boards.get(board_id)  # The Firefox board
+    board_id = "5887b9767bc90fd832e669f8"  # The Firefox board
+    board = tr.boards.get(board_id)
 
     old_cards = dict()
     old_lists = dict()
@@ -53,8 +53,8 @@ def main(argv):
     if os.path.exists("state.json"):
         with open("state.json", "r") as f:
             state = json.load(f)
-        old_cards = state["cards"]
-        old_lists = state["lists"]
+            old_cards = state["cards"]
+            old_lists = state["lists"]
 
     cards = dict(map(lambda x: [x["id"], x], tr.boards.get_card(board_id)))
     lists = dict(map(lambda x: [x["id"], x], map(tr.lists.get, set(map(lambda c: c["idList"], cards.itervalues())))))
@@ -78,11 +78,9 @@ def main(argv):
     else:
         print "Same old"
 
-
     with open("state.json", "w") as f:
         json.dump({"cards": cards, "lists": lists}, f)
 
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
-
