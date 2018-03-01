@@ -1,11 +1,11 @@
 This is experimental code. Do not use.
 
+* ```cd trellosa```
 * ```virtualenv -p python2 venv```
 * ```. venv/bin/activate```
-* ```pip install trello ipython```
-* ```./main.py```
-
-Follow instrunctions to create a read-only Trello user token.
-
-You will be dropped into an IPython shell if the Firefox Trello board has cards or lists added or removed since the last run.
-
+* ```pip install -e .[dev]```
+* ```trellosa setup -i  # and follow instructions```
+* ```trellosa pull  # Save snapshot of Trello board```
+* ```sleep 1000  # wait some time```
+* ```trellosa diff  # To see what changed online since last pull```
+* ```trellosa --help  # For subcommands and documentation```
