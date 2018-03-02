@@ -6,8 +6,15 @@
 
 import glob
 import gzip
+import json
 import logging
 import os
+from requests.exceptions import HTTPError
+import time
+from trello import TrelloApi
+
+from trellosa import TRELLO_PUBLIC_APP_KEY
+from trellosa.token import read_token,is_valid_token
 
 
 logger = logging.getLogger(__name__)
@@ -121,3 +128,67 @@ class SnapshotDB(object):
         logger.debug("Writing snapshot `%s`" % handle)
         with self.open(handle, "w") as f:
             f.write(str(data).encode("utf-8"))
+
+
+def fetch(workdir, token, board_id):
+
+    tr = TrelloApi(TRELLO_PUBLIC_APP_KEY)
+
+    user_token = read_token(workdir)
+
+    if token is not None:
+        if is_valid_token(tr, token):
+            logger.warning("Overriding default Trello token")
+            user_token = token
+        else:
+            logger.critical("Invalid token specified")
+            return None
+
+    if user_token is None:
+        logger.critical("No Trello access token configured. Use `setup` command or `--token` argument")
+        return None
+
+    tr.set_token(user_token)
+
+    now = time.time()
+    try:
+        board = tr.boards.get(board_id)
+    except HTTPError as e:
+        logger.error(e)
+        return None
+
+    cards = dict(map(lambda x: [x["id"], x], tr.boards.get_card(board_id)))
+    lists = dict(map(lambda x: [x["id"], x], map(tr.lists.get, set(map(lambda c: c["idList"], cards.itervalues())))))
+    meta = {"board": board, "snapshot_time": now}
+
+    return {"meta": meta, "cards": cards, "lists": lists}
+
+
+def match(snapshot_db, tag_db, ref):
+    snaps = snapshot_db.list()
+
+    handle = None
+    if ref == "0":
+        handle = "online"
+    elif ref.isdigit():
+        try:
+            handle = snaps[-int(ref)]
+        except IndexError:
+            handle = None
+    elif ref in snaps:
+        handle = ref
+    elif tag_db.exists(ref):
+        handle = tag_db.tag_to_handle(ref)
+
+    return handle
+
+
+def get(args, snapshot_db, tag_db, ref):
+    handle = match(snapshot_db, tag_db, ref)
+    if handle is None:
+        return None, None
+
+    if handle == "online":
+        return handle, fetch(args.workdir, args.token if "token" in args else None, args.board)
+    else:
+        return handle, json.loads(snapshot_db.read(handle))

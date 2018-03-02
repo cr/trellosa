@@ -7,52 +7,14 @@
 import datetime
 import json
 import logging
-from requests.exceptions import HTTPError
 import sys
-import time
-from trello import TrelloApi
+
 
 from basecommand import BaseCommand
-from trellosa import TRELLO_PUBLIC_APP_KEY
-from trellosa.token import read_token,is_valid_token
 import trellosa.snapshots as snapshots
 
 
 logger = logging.getLogger(__name__)
-
-
-def fetch(args):
-    tr = TrelloApi(TRELLO_PUBLIC_APP_KEY)
-
-    user_token = read_token(args.workdir)
-
-    if args.token is not None:
-        if is_valid_token(tr, args.token):
-            logger.warning("Overriding default Trello token")
-            user_token = args.token
-        else:
-            logger.critical("Invalid token specified")
-            return None
-
-    if user_token is None:
-        logger.critical("No Trello access token configured. Use `setup` command or `--token` argument")
-        return None
-
-    tr.set_token(user_token)
-
-    now = time.time()
-    board_id = args.board
-    try:
-        board = tr.boards.get(board_id)
-    except HTTPError as e:
-        logger.error(e)
-        return None
-
-    cards = dict(map(lambda x: [x["id"], x], tr.boards.get_card(board_id)))
-    lists = dict(map(lambda x: [x["id"], x], map(tr.lists.get, set(map(lambda c: c["idList"], cards.itervalues())))))
-    meta = {"board": board, "snapshot_time": now}
-
-    return {"meta": meta, "cards": cards, "lists": lists}
 
 
 class PullMode(BaseCommand):
@@ -81,7 +43,7 @@ class PullMode(BaseCommand):
 
     def run(self):
 
-        data = fetch(self.args)
+        data = snapshots.fetch(self.args)
         if data is None:
             return 5
 

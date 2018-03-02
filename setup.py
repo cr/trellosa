@@ -12,6 +12,7 @@ PACKAGE_VERSION = '0.2.0a1'
 INSTALL_REQUIRES = [
     'coloredlogs',
     'jsondiff',
+    'pygments',
     'trello'
 ]
 
