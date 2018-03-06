@@ -14,7 +14,7 @@ import time
 from trello import TrelloApi
 
 from trellosa import TRELLO_PUBLIC_APP_KEY
-from trellosa.token import read_token,is_valid_token
+from trellosa.token import read_token, is_valid_token
 
 
 logger = logging.getLogger(__name__)

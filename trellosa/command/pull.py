@@ -43,7 +43,7 @@ class PullMode(BaseCommand):
 
     def run(self):
 
-        data = snapshots.fetch(self.args)
+        data = snapshots.fetch(self.args.workdir, self.args.token, self.args.board)
         if data is None:
             return 5
 
