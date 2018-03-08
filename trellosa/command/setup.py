@@ -59,7 +59,7 @@ class SetupMode(BaseCommand):
             url = generate_token_url(tr)
             logger.info("Go to `%s`, authorize a token, and give it to me" % url)
             while True:
-                token_candidate = raw_input("Token: ")
+                token_candidate = raw_input("Token: ").strip()
                 if is_valid_token(tr, token_candidate):
                     write_token(token_candidate, self.args.workdir)
                     return 0
