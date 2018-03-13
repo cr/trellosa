@@ -62,6 +62,7 @@ class SetupMode(BaseCommand):
                 token_candidate = raw_input("Token: ")
                 if is_valid_token(tr, token_candidate):
                     write_token(token_candidate, self.args.workdir)
+                    logger.info("Token stored successfully")
                     return 0
                 else:
                     logger.error("Invalid token")
