@@ -48,6 +48,9 @@ class DiffMode(BaseCommand):
                             help="Snapshot reference for comparing against (default: 0, online)",
                             action="store",
                             default="0")
+        parser.add_argument("-e", "--everything",
+                            help="Do not filter noisy, irrelevant changes",
+                            action="store_true")
         parser.add_argument("-f", "--format",
                             help="Output format (default: pretty)",
                             choices=["jdiff", "json", "pretty"],
@@ -90,6 +93,37 @@ class DiffMode(BaseCommand):
                 del diff["meta"]
 
         if len(diff) == 0:
+            return 0
+
+        if not self.args.everything:
+            # Filter out irrelevant and noisy changes
+
+            for l in diff["labels"].keys():
+                if "uses" in diff["labels"][l]:
+                    del diff["labels"][l]["uses"]
+                if len(diff["labels"][l]) == 0:
+                    del diff["labels"][l]
+            if len(diff["labels"]) == 0:
+                del diff["labels"]
+
+            for c in diff["cards"].keys():
+                if "labels" in diff["cards"][c]:
+                    del diff["cards"][c]["labels"]
+                if "badges" in diff["cards"][c]:
+                    del diff["cards"][c]["badges"]
+                if "uses" in diff["cards"][c]:
+                    del diff["cards"][c]["uses"]
+                if "idLabels" in diff["cards"][c]:
+                    del diff["cards"][c]["idLabels"]
+                if "dateLastActivity" in diff["cards"][c]:
+                    del diff["cards"][c]["dateLastActivity"]
+                if len(diff["cards"][c]) == 0:
+                    del diff["cards"][c]
+            if len(diff["cards"]) == 0:
+                del diff["cards"]
+
+        if len(diff) == 0:
+            logger.warning("Hiding irrelevant changes. Use `--everything` to see then.")
             return 0
 
         if self.args.format == "jdiff":

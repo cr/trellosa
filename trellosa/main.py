@@ -7,7 +7,6 @@
 
 import argparse
 import coloredlogs
-import json
 import logging
 import os
 import pkg_resources
@@ -16,7 +15,6 @@ import sys
 import tempfile
 import threading
 import time
-from trello import TrelloApi
 
 import cleanup
 import command

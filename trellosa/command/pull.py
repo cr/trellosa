@@ -9,9 +9,10 @@ import json
 import logging
 import sys
 
-
 from basecommand import BaseCommand
 import trellosa.snapshots as snapshots
+from trellosa.trello import FirefoxTrello
+from trellosa.token import read_token
 
 
 logger = logging.getLogger(__name__)
@@ -42,8 +43,13 @@ class PullMode(BaseCommand):
                             action="store")
 
     def run(self):
+        user_token = read_token(self.args.workdir, override=self.args.token)
+        if user_token is None:
+            logger.critical("No Trello access token configured. Use `setup` command or `--token` argument")
+            return 10
 
-        data = snapshots.fetch(self.args.workdir, self.args.token, self.args.board)
+        tr = FirefoxTrello(user_token=user_token, board_id=self.args.board)
+        data = tr.get_snapshot()
         if data is None:
             return 5
 
@@ -53,7 +59,7 @@ class PullMode(BaseCommand):
         else:
             db = snapshots.SnapshotDB(self.args)
             handle = datetime.datetime.utcfromtimestamp(data["meta"]["snapshot_time"]).strftime("%Y-%m-%dZ%H-%M-%S")
-            data = json.dumps(data)
+            data = json.dumps(data, sort_keys=True)
             logger.info("Writing snapshot `%s`" % handle)
             db.write(handle, data)
 

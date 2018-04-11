@@ -7,13 +7,13 @@
 from setuptools import setup, find_packages
 
 PACKAGE_NAME = 'trellosa'
-PACKAGE_VERSION = '0.2.0a1'
+PACKAGE_VERSION = '0.3.0a1'
 
 INSTALL_REQUIRES = [
     'coloredlogs',
+    'ipython',
     'jsondiff',
-    'pygments',
-    'trello'
+    'pygments'
 ]
 
 TESTS_REQUIRE = [
