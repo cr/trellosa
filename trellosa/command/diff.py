@@ -7,6 +7,7 @@
 import json
 import jsondiff
 import logging
+import os
 from pprint import PrettyPrinter as pp
 from pygments import highlight
 from pygments.formatters import Terminal256Formatter
@@ -98,29 +99,31 @@ class DiffMode(BaseCommand):
         if not self.args.everything:
             # Filter out irrelevant and noisy changes
 
-            for l in diff["labels"].keys():
-                if "uses" in diff["labels"][l]:
-                    del diff["labels"][l]["uses"]
-                if len(diff["labels"][l]) == 0:
-                    del diff["labels"][l]
-            if len(diff["labels"]) == 0:
-                del diff["labels"]
+            if "labels" in diff:
+                for l in diff["labels"].keys():
+                    if "uses" in diff["labels"][l]:
+                        del diff["labels"][l]["uses"]
+                    if len(diff["labels"][l]) == 0:
+                        del diff["labels"][l]
+                if len(diff["labels"]) == 0:
+                    del diff["labels"]
 
-            for c in diff["cards"].keys():
-                if "labels" in diff["cards"][c]:
-                    del diff["cards"][c]["labels"]
-                if "badges" in diff["cards"][c]:
-                    del diff["cards"][c]["badges"]
-                if "uses" in diff["cards"][c]:
-                    del diff["cards"][c]["uses"]
-                if "idLabels" in diff["cards"][c]:
-                    del diff["cards"][c]["idLabels"]
-                if "dateLastActivity" in diff["cards"][c]:
-                    del diff["cards"][c]["dateLastActivity"]
-                if len(diff["cards"][c]) == 0:
-                    del diff["cards"][c]
-            if len(diff["cards"]) == 0:
-                del diff["cards"]
+            if "cards" in diff:
+                for c in diff["cards"].keys():
+                    if "labels" in diff["cards"][c]:
+                        del diff["cards"][c]["labels"]
+                    if "badges" in diff["cards"][c]:
+                        del diff["cards"][c]["badges"]
+                    if "uses" in diff["cards"][c]:
+                        del diff["cards"][c]["uses"]
+                    if "idLabels" in diff["cards"][c]:
+                        del diff["cards"][c]["idLabels"]
+                    if "dateLastActivity" in diff["cards"][c]:
+                        del diff["cards"][c]["dateLastActivity"]
+                    if len(diff["cards"][c]) == 0:
+                        del diff["cards"][c]
+                if len(diff["cards"]) == 0:
+                    del diff["cards"]
 
         if len(diff) == 0:
             logger.warning("Hiding irrelevant changes. Use `--everything` to see then.")
@@ -136,6 +139,12 @@ class DiffMode(BaseCommand):
                 print diff_str
         if self.args.format == "pretty":
             # py3 knows os.get_terminal_size(), but we need to guesstimate a width in py2
-            pp(indent=1, width=120).pprint(diff)
+            try:
+                width = os.get_terminal_size().columns
+            except AttributeError:
+                width = 120
+            except OSError:
+                width = 120
+            pp(indent=1, width=str(width)).pprint(diff)
 
         return 1

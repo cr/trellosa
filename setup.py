@@ -7,13 +7,14 @@
 from setuptools import setup, find_packages
 
 PACKAGE_NAME = 'trellosa'
-PACKAGE_VERSION = '0.3.0a1'
+PACKAGE_VERSION = '0.3.0a2'
 
 INSTALL_REQUIRES = [
     'coloredlogs',
     'ipython',
     'jsondiff',
-    'pygments'
+    'pygments',
+    'requests'
 ]
 
 TESTS_REQUIRE = [
@@ -59,7 +60,7 @@ setup(
     packages=find_packages(exclude=["tests"]),
     include_package_data=True,  # See MANIFEST.in
     zip_safe=True,
-    use_2to3=False,
+    use_2to3=True,
     install_requires=INSTALL_REQUIRES,
     tests_require=TESTS_REQUIRE,
     extras_require={'dev': DEV_REQUIRES},  # For `pip install -e .[dev]`
