@@ -9,12 +9,9 @@ import gzip
 import json
 import logging
 import os
-from requests.exceptions import HTTPError
-import time
-from trello import TrelloApi
 
-from trellosa import TRELLO_PUBLIC_APP_KEY
-from trellosa.token import read_token, is_valid_token
+from trellosa.token import read_token
+from trellosa.trello import FirefoxTrello
 
 
 logger = logging.getLogger(__name__)
@@ -130,40 +127,6 @@ class SnapshotDB(object):
             f.write(str(data).encode("utf-8"))
 
 
-def fetch(workdir, token, board_id):
-
-    tr = TrelloApi(TRELLO_PUBLIC_APP_KEY)
-
-    user_token = read_token(workdir)
-
-    if token is not None:
-        if is_valid_token(tr, token):
-            logger.warning("Overriding default Trello token")
-            user_token = token
-        else:
-            logger.critical("Invalid token specified")
-            return None
-
-    if user_token is None:
-        logger.critical("No Trello access token configured. Use `setup` command or `--token` argument")
-        return None
-
-    tr.set_token(user_token)
-
-    now = time.time()
-    try:
-        board = tr.boards.get(board_id)
-    except HTTPError as e:
-        logger.error(e)
-        return None
-
-    cards = dict(map(lambda x: [x["id"], x], tr.boards.get_card(board_id)))
-    lists = dict(map(lambda x: [x["id"], x], map(tr.lists.get, set(map(lambda c: c["idList"], cards.itervalues())))))
-    meta = {"board": board, "snapshot_time": now}
-
-    return {"meta": meta, "cards": cards, "lists": lists}
-
-
 def match(snapshot_db, tag_db, ref):
     snaps = snapshot_db.list()
 
@@ -189,6 +152,11 @@ def get(args, snapshot_db, tag_db, ref):
         return None, None
 
     if handle == "online":
-        return handle, fetch(args.workdir, args.token if "token" in args else None, args.board)
+        user_token = read_token(args.workdir, override=args.token)
+        if user_token is None:
+            logger.critical("No Trello access token configured. Use `setup` command or `--token` argument")
+            raise Exception("Unable to continue without token")
+        tr = FirefoxTrello(user_token=user_token, board_id=args.board)
+        return handle, tr.get_snapshot()
     else:
         return handle, json.loads(snapshot_db.read(handle))

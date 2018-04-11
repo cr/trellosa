@@ -12,9 +12,10 @@ import diff
 import log
 import pull
 import setup
+import shell
 import tag
 
-__all__ = ["diff", "log", "pull", "setup", "tag"]
+__all__ = ["diff", "log", "pull", "setup", "shell", "tag"]
 logger = logging.getLogger(__name__)
 
 
