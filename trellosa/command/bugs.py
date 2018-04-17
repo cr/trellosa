@@ -18,7 +18,7 @@ import trellosa.token as token
 logger = logging.getLogger(__name__)
 
 
-class LogMode(BaseCommand):
+class BugsMode(BaseCommand):
     """
     Command for listing board snapshots
     """

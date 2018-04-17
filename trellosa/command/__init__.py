@@ -15,9 +15,10 @@ import pull
 import query
 import setup
 import shell
+import stats
 import tag
 
-__all__ = ["bugs", "diff", "log", "pull", "query", "setup", "shell", "tag"]
+__all__ = ["bugs", "diff", "log", "pull", "query", "setup", "shell", "stats", "tag"]
 logger = logging.getLogger(__name__)
 
 

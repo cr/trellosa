@@ -100,7 +100,7 @@ class DiffMode(BaseCommand):
             return 0
 
         if self.args.triage:
-            result = {"new_cards": [], "moved_cards": [], "deleted_cards": []}
+            result = {"new_cards": [], "moved_cards": [], "deleted_cards": [], "open_change": []}
             # Check for new cards
             if "cards" in diff and "$insert" in diff["cards"]:
                 for cid in diff["cards"]["$insert"]:
@@ -131,6 +131,23 @@ class DiffMode(BaseCommand):
                         "d_list_from": from_list["name"],
                         "e_list_to": to_list["name"],
                         "f_card_url": card["shortUrl"]
+                    })
+            # Check for activated/deactivated cards
+            if "cards" in diff:
+                for cid in diff["cards"]:
+                    if cid.startswith("$"):
+                        continue
+                    if "idList" not in diff["cards"][cid]:
+                        continue
+                    if a["cards"][cid]["closed"] == b["cards"][cid]["closed"]:
+                        continue
+                    card = b["cards"][cid]
+                    in_list = b["lists"][diff["cards"][cid]["idList"][1]]
+                    result["open_change"].append({
+                        "a_name": card["name"],
+                        "b_closed": card["closed"],
+                        "c_list_in": in_list["name"],
+                        "d_card_url": card["shortUrl"]
                     })
             # Check for deleted cards
             print diff.keys()

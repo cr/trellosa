@@ -19,7 +19,7 @@ import trellosa.tags as tags
 logger = logging.getLogger(__name__)
 
 
-class LogMode(BaseCommand):
+class QueryMode(BaseCommand):
     """
     Command for listing board snapshots
     """
