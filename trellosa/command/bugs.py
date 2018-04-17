@@ -53,6 +53,20 @@ class BugsMode(BaseCommand):
         bz = bugzilla.BugzillaClient(bz_token)
         content = bz.get_snapshot()
 
+        import trellosa.snapshots as snapshots
+        import trellosa.tags as tags
+
+        snapshot_db = snapshots.SnapshotDB(self.args)
+        tag_db = tags.TagsDB(self.args)
+        handle, trello_snapshot = snapshots.get(self.args, snapshot_db, tag_db, "1")
+
+        draftbug = bz.create_bug("596e8cfb5126ab3b6fe254a7",
+                                 trello_snapshot)
+        print draftbug
+        print
+
+        draftbug.submit()
+
         content_str = json.dumps(content, indent=4, sort_keys=True)
         if sys.stdout.isatty():
             print highlight(content_str, JsonLexer(), Terminal256Formatter())
