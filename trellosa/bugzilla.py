@@ -8,6 +8,7 @@ import logging
 import requests
 from requests.exceptions import HTTPError
 import time
+import re
 
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,9 @@ def generate_token_url():
 
 
 class BugzillaClient(object):
-    URL = "https://bugzilla.mozilla.org/rest/bug"
+    # FIXME use production url---v
+    URL = "https://bugzilla-dev.allizom.org/rest/bug"
+    # TODO use production url -^
 
     def __init__(self, token=None):
         self.token = token
@@ -41,8 +44,8 @@ class BugzillaClient(object):
             "api_key": self.token
         }
         response = requests.get(self.URL, params=params)
-        if not response.status_code == 200:
-            raise HTTPError("Status was not 200. Meh.")
+
+        response.raise_for_status()
 
         bugs = response.json()['bugs']
         if len(bugs) == 0:
@@ -53,6 +56,61 @@ class BugzillaClient(object):
 
         return {"meta": meta, "bugs": bugs, "whatever": "else"}
 
+    def parse_version(self, listname):
+        """ parses version information from name of a trello list"""
+        pattern = 'F(irefo)?x\s?([4-9]{1}[0-9]{1})'
+        match = re.search(pattern, listname)
+        if match:
+            return match.group(2)
+
     def create_bug(self, card_id, trello_snapshot):
-        # FIXME: needs implementation
-        pass
+        card = trello_snapshot['cards'][card_id]
+        #labels = trello_snapshot['labels'][card_id]
+        listobj = trello_snapshot['lists'][card['idList']]
+
+        version = self.parse_version(listobj['name'])
+
+        bugdata = {
+            'groups': ['mozilla-employee-confidential'],
+            'version': "{} Branch".format(version),
+            'target_milestone': "Firefox {}".format(version),
+            'url': card['shortUrl'],
+            'summary': 'Risk Assessment: ' + card['name'],
+            "description": "Risk Assessment for {}\n\n{}".format(card['name'], card['shortUrl']),
+            "component": "Security: Review Requests",
+            "product": "Firefox",
+            "api_key": self.token
+        }
+
+        return DraftBug(self.URL, bugdata)
+
+
+class DraftBug():
+    def __init__(self, url, data):
+        self.url = url
+        self.params = data
+
+    def __str__(self):
+        return "Bug '{}' for version {}".format(
+            self.params['summary'],
+            self.params['target_milestone'])
+
+    def preview_verbose(self):
+        return self.params
+
+    def submit(self):
+        """ Creates a new bug and returns its URL """
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        response = requests.post(self.url, json=self.params, headers=headers)
+        response.raise_for_status()
+
+        bugid = response.json()['id']
+
+        # https://bugzilla.mozilla.org/show_bug.cgi?id=
+        showbugurl = self.url.replace("rest/bug", "show_bug.cgi?id=")
+        return showbugurl + bugid
+
+
