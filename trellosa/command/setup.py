@@ -36,8 +36,25 @@ class SetupMode(BaseCommand):
         parser.add_argument("-t", "--token",
                             help="Set Trello token as new default",
                             action="store")
+        parser.add_argument("-b", "--bztoken",
+                            help="Set Bugzilla token as new default",
+                            action="store_true")
 
     def run(self):
+
+        # FIXME: special handling of bztoken must be integrated into regular workflow
+        if self.args.bztoken:
+            url = generate_token_url("bugzilla")
+            logger.info("Go to `%s`, generate a token, and give it to me" % url)
+            while True:
+                token_candidate = raw_input("Token: ").strip()
+                if check_token(token_candidate, token_type="bugzilla"):
+                    write_token(token_candidate, self.args.workdir, token_type="bugzilla")
+                    logger.info("Bugzilla token stored successfully")
+                    return 0
+                else:
+                    logger.error("Invalid token")
+            return 0
 
         if self.args.token:
             if not check_token(self.args.token, write=True):

@@ -61,4 +61,3 @@ class BaseCommand(object):
         :return: None
         """
         pass
-

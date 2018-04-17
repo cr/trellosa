@@ -8,6 +8,7 @@ import logging
 import sys
 
 import basecommand
+import bugs
 import diff
 import log
 import pull
@@ -15,7 +16,7 @@ import setup
 import shell
 import tag
 
-__all__ = ["diff", "log", "pull", "setup", "shell", "tag"]
+__all__ = ["bugs", "diff", "log", "pull", "setup", "shell", "tag"]
 logger = logging.getLogger(__name__)
 
 

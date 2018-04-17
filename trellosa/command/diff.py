@@ -110,6 +110,8 @@ class DiffMode(BaseCommand):
 
             if "cards" in diff:
                 for c in diff["cards"].keys():
+                    if "desc" in diff["cards"][c]:
+                        del diff["cards"][c]["desc"]
                     if "labels" in diff["cards"][c]:
                         del diff["cards"][c]["labels"]
                     if "badges" in diff["cards"][c]:
@@ -126,7 +128,7 @@ class DiffMode(BaseCommand):
                     del diff["cards"]
 
         if len(diff) == 0:
-            logger.warning("Hiding irrelevant changes. Use `--everything` to see then.")
+            logger.warning("Irrelevant changes hidden. Use `--everything` to see them.")
             return 0
 
         if self.args.format == "jdiff":
