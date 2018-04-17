@@ -61,13 +61,23 @@ class LogMode(BaseCommand):
             logger.critical("Please specify ID to query with `-i`")
             return 10
 
-        tid = self.args.id
+        tid = str(self.args.id)
+        logger.debug("Looking for ID pattern `%s`" % tid)
 
         result = {}
         for k in content:
+            logger.debug("Searching in `%s`" % k)
             if tid in content[k]:
-                result = {"lists": {tid: content[k][tid]}}
+                logger.debug("Direct hit for `%s` in `%s`" % (tid, k))
+                result = {k: {tid: content[k][tid]}}
                 break
+            for kk in content[k]:
+                logger.debug("Checking against `%s`" % kk)
+                if tid in kk:
+                    logger.debug("Matched `%s` in %s `%s`" % (tid, k, kk))
+                    if k not in result:
+                        result[k] = {}
+                    result[k][kk] = content[k][kk]
 
         result_str = json.dumps(result, indent=4, sort_keys=True)
         if sys.stdout.isatty():
