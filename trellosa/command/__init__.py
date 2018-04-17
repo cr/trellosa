@@ -12,11 +12,12 @@ import bugs
 import diff
 import log
 import pull
+import query
 import setup
 import shell
 import tag
 
-__all__ = ["bugs", "diff", "log", "pull", "setup", "shell", "tag"]
+__all__ = ["bugs", "diff", "log", "pull", "query", "setup", "shell", "tag"]
 logger = logging.getLogger(__name__)
 
 
