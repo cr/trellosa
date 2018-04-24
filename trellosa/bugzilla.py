@@ -79,6 +79,7 @@ class BugzillaClient(object):
             "description": "Risk Assessment for {}\n\n{}".format(card['name'], card['shortUrl']),
             "component": "Security: Review Requests",
             "product": "Firefox",
+            "keywords": ["rra"],
             "api_key": self.token
         }
 
