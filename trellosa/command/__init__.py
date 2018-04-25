@@ -17,8 +17,9 @@ import setup
 import shell
 import stats
 import tag
+import triage
 
-__all__ = ["bugs", "diff", "log", "pull", "query", "setup", "shell", "stats", "tag"]
+__all__ = ["bugs", "diff", "log", "pull", "query", "setup", "shell", "stats", "tag", "triage"]
 logger = logging.getLogger(__name__)
 
 

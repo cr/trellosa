@@ -5,6 +5,7 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import logging
+import re
 import requests
 from requests.exceptions import HTTPError
 import time
@@ -24,6 +25,73 @@ def generate_token_url(app_key, token_name="TrelloSA", expiration="never", scope
         "scope": scope
     }
     return url.format(**args)
+
+
+def parse_firefox_version(list_name):
+    m = re.search(r'''(fx|firefox)\s*(\d+)''', list_name, flags=re.I)
+    if m is None:
+        return None
+    else:
+        return m.group(2)
+
+
+def extract_security_info(card, security_notes_id):
+    if "customFieldItems" in card:
+        for cf in card["customFieldItems"]:
+            if cf["idCustomField"] == security_notes_id:
+                return cf["value"]["text"]
+    return None
+
+
+def extract_bugzilla_bug(card, security_notes_id):
+    sec_info = extract_security_info(card, security_notes_id)
+    if sec_info is None:
+        return None
+    m = re.search(r'''(bug)\s*(\d+)''', sec_info, flags=re.I)
+    if m is None:
+        return None
+    else:
+        return m.group(2)
+
+
+def extract_security_labels(card, security_action_required_label, security_ok_label):
+    labels = []
+    if "labels" in card:
+        for label in card["labels"]:
+            if label["id"] == security_action_required_label:
+                labels.append(security_action_required_label)
+                continue
+            if label["id"] == security_ok_label:
+                labels.append(security_ok_label)
+    return labels
+
+
+def security_label_should_be(bug, security_action_required_label, security_ok_label):
+    # FIXME: implement function that returns security label according to bug state
+    status = bug["status"]
+    resolution = bug["resolution"]
+    if status == "NEW" or status == "REOPENED":
+        return security_action_required_label
+    elif status == "UNCONFIRMED":
+        return security_action_required_label
+    elif status == "ASSIGNED":
+        return security_action_required_label
+    elif status == "RESOLVED":
+        if resolution == "FIXED":
+            return security_ok_label
+        elif resolution == "INVALID":
+            return security_ok_label
+        elif resolution == "INCOMPLETE":  #TODO: This seems to be non-standard
+            logger.warn("http://bugzil.la/%s has weird bug resolution %s" % (bug["id"], resolution))
+            return security_ok_label
+        elif resolution == "WONTFIX":
+            return security_ok_label  #TODO: We may want to use a different trello card label here
+        else:
+            logger.error("http://bugzil.la/%s has weird bug resolution %s" % (bug["id"], resolution))
+            return security_action_required_label
+    else:
+        logger.error("http://bugzil.la/%s has weird bug status %s" % (bug["id"], status))
+        return security_action_required_label
 
 
 class TrelloClient(object):
@@ -127,17 +195,16 @@ class FirefoxTrello(TrelloClient):
 
     FIREFOX_BOARD_ID = "5887b9767bc90fd832e669f8"
 
-    # Fixme: These IDs change when you use a different board, even if it's a copy of the original
-    SECURITY_NOTES_ID = "5a986701d6afbd6de1c283ab"
-    LABEL_ACTION_REQUIRED = "5a87103058c87cee7a848645"
-    LABEL_OK = "5aa1d077f70408344daa5d80"
-
     def __init__(self, user_token=None, board_id=FIREFOX_BOARD_ID):
         super(FirefoxTrello, self).__init__(user_token=user_token)
         self.board_id = board_id
         self.board = None
         self.labels = None
-        self.custom_fields = None
+        self.__custom_fields = None
+        self.__security_notes = None
+        self.__security_action_required_label = None
+        self.__security_ok_label = None
+        self.__security_notes_id = None
 
     def get_board(self):
         return self.get("/boards/{}".format(self.board_id))
@@ -148,11 +215,23 @@ class FirefoxTrello(TrelloClient):
             self.labels = dict(map(lambda x: (x["id"], x), result))
         return self.labels
 
-    def get_custom_fields(self, caching=True):
-        if self.custom_fields is None or not caching:
+    @property
+    def custom_fields(self):
+        if self.__custom_fields is None:
             result = self.get("/boards/{}/customFields".format(self.board_id))
-            self.custom_fields = dict(map(lambda x: (x["id"], x), result))
-        return self.custom_fields
+            self.__custom_fields = dict(map(lambda x: (x["id"], x), result))
+        return self.__custom_fields
+
+    @property
+    def security_notes_id(self):
+        if self.__security_notes_id is None:
+            for field in self.custom_fields.itervalues():
+                if field["name"].lower() == "Security Notes".lower():
+                    self.__security_notes_id = field["id"]
+                    break
+            if self.__security_notes_id is None:
+                raise Exception("Custom field `Security Notes` is gone, can't live without it")
+        return self.__security_notes_id
 
     def get_cards(self):
         result = self.get("/boards/{}/cards/all".format(self.board_id), customFieldItems="true")
@@ -169,23 +248,47 @@ class FirefoxTrello(TrelloClient):
         now = time.time()
         board = self.get_board()
         labels = self.get_labels()
-        custom_fields = self.get_custom_fields()
         lists = self.get_lists()
         cards = self.get_cards()
         meta = {"board": board, "snapshot_time": now}
 
-        return {"meta": meta, "cards": cards, "lists": lists, "labels": labels, "custom_fields": custom_fields}
+        return {"meta": meta, "cards": cards, "lists": lists, "labels": labels, "custom_fields": self.custom_fields}
 
     def set_custom_field_text(self, card_id, field_id, text):
         data = {"value": {"text": text}}
         self.put("/card/{}/customField/{}/item".format(card_id, field_id), json=data)
 
     def set_security_notes(self, card_id, message):
-        return self.set_custom_field_text(card_id, self.SECURITY_NOTES_ID, message)
+        return self.set_custom_field_text(card_id, self.security_notes_id, message)
 
     def set_security_ok_label(self, card_id):
-        self.post("/cards/{}/idLables")
-        pass
+        self.post("/cards/{}/idLabels".format(card_id), value=self.security_ok_label)
+        self.delete("/cards/{}/idLabels/{}".format(card_id, self.security_action_required_label))
 
     def set_security_action_required_label(self, card_id):
-        pass
+        self.post("/cards/{}/idLabels".format(card_id), value=self.security_action_required_label)
+        self.delete("/cards/{}/idLabels/{}".format(card_id, self.security_ok_label))
+
+    def __update_labels(self):
+        labels = self.get_labels()
+        for label in labels.itervalues():
+            if label["name"].lower() == "Security Triage: OK".lower():
+                self.__security_ok_label = label["id"]
+            elif label["name"].lower() == "Security Triage: Action required".lower():
+                self.__security_action_required_label = label["id"]
+        if self.__security_ok_label is None:
+            raise Exception("Label `Security Triage: OK` is gone, can't live without it")
+        if self.__security_action_required_label is None:
+            raise Exception("Label `Security Triage: Action required` is gone, can't live without it")
+
+    @property
+    def security_action_required_label(self):
+        if self.__security_action_required_label is None:
+            self.__update_labels()
+        return self.__security_action_required_label
+
+    @property
+    def security_ok_label(self):
+        if self.__security_ok_label is None:
+            self.__update_labels()
+        return self.__security_ok_label
