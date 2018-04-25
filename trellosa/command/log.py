@@ -4,12 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import json
 import logging
-from pygments import highlight
-from pygments.formatters import Terminal256Formatter
-from pygments.lexers import JsonLexer
-import sys
 
 from basecommand import BaseCommand
 import trellosa.snapshots as snapshots
@@ -30,20 +25,38 @@ class LogMode(BaseCommand):
     @classmethod
     def setup_args(cls, parser):
         """
-        Add subparser for setup-specific arguments.
+        Add subparser for log-specific arguments.
 
         :param parser: parent argparser to add to
         :return: None
         """
 
         parser.add_argument("-s", "--show",
-                            help="Dump a board snapshot to the terminal",
+                            help="Dump a snapshot to the terminal",
+                            action="store")
+
+        parser.add_argument("--delete",
+                            help="Delete a snapshot",
                             action="store")
 
     def run(self):
 
         snapshot_db = snapshots.SnapshotDB(self.args)
         tag_db = tags.TagsDB(self.args)
+
+        if self.args.delete:
+            handle = snapshots.match(snapshot_db, tag_db, self.args.delete)
+            if handle is None:
+                logger.critical("Unknown reference for deletion")
+                return 10
+            elif handle == "online":
+                logger.critical("Deleting the Internet...")
+                logger.warn("Done. You are on your own now. Please start over.")
+                return 42
+            else:
+                snapshot_db.delete(handle)
+                # TODO: Also delete associated tags
+                return 0
 
         if self.args.show is None:
             handle_list = snapshot_db.list()
@@ -65,10 +78,6 @@ class LogMode(BaseCommand):
                 logger.critical("Error retrieving snapshot content")
                 return 5
 
-            content_str = json.dumps(content, indent=4, sort_keys=True)
-            if sys.stdout.isatty():
-                print highlight(content_str, JsonLexer(), Terminal256Formatter())
-            else:
-                print content_str
+            snapshots.json_highlight_print(content)
 
         return 0

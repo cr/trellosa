@@ -4,15 +4,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import json
 import jsondiff
 import logging
 import os
 from pprint import PrettyPrinter as pp
-from pygments import highlight
-from pygments.formatters import Terminal256Formatter
-from pygments.lexers import JsonLexer
-import sys
 
 from basecommand import BaseCommand
 import trellosa.snapshots as snapshots
@@ -57,12 +52,6 @@ class DiffMode(BaseCommand):
                             choices=["jdiff", "json", "pretty"],
                             action="store",
                             default="pretty")
-        parser.add_argument("-t", "--token",
-                            help="Override Trello token",
-                            action="store")
-        parser.add_argument("-i", "--triage",
-                            help="Triage mode",
-                            action="store_true")
 
     def run(self):
         snapshot_db = snapshots.SnapshotDB(self.args)
@@ -90,6 +79,8 @@ class DiffMode(BaseCommand):
         # keys which json.dump() does not like at all.
         diff = jsondiff.diff(a, b, syntax="symmetric", marshal=True)
 
+        # TODO: Adapt filtering to new trello + bugzilla combo snapshots
+
         # Filter out obvious changelings
         if "meta" in diff and "snapshot_time" in diff["meta"]:
             del diff["meta"]["snapshot_time"]
@@ -97,75 +88,6 @@ class DiffMode(BaseCommand):
                 del diff["meta"]
 
         if len(diff) == 0:
-            return 0
-
-        if self.args.triage:
-            result = {"new_cards": [], "moved_cards": [], "deleted_cards": [], "open_change": []}
-            # Check for new cards
-            if "cards" in diff and "$insert" in diff["cards"]:
-                for cid in diff["cards"]["$insert"]:
-                    card = b["cards"][cid]
-                    to_list = b["lists"][card["idList"]]
-                    labels = [l["name"] for l in b["cards"][cid]["labels"]]
-                    result["new_cards"].append({
-                        "a_name": card["name"],
-                        "b_labels": labels,
-                        "c_list_to": to_list["name"],
-                        "d_card_url": card["shortUrl"]
-                    })
-            # Check for moved cards
-            if "cards" in diff:
-                for cid in diff["cards"]:
-                    if cid.startswith("$"):
-                        continue
-                    if "idList" not in diff["cards"][cid]:
-                        continue
-                    card = b["cards"][cid]
-                    from_list = a["lists"][diff["cards"][cid]["idList"][0]]
-                    to_list = b["lists"][diff["cards"][cid]["idList"][1]]
-                    labels = [l["name"] for l in b["cards"][cid]["labels"]]
-                    result["moved_cards"].append({
-                        "a_name": card["name"],
-                        "b_labels": labels,
-                        "c_description": card["desc"][:300] + "...",
-                        "d_list_from": from_list["name"],
-                        "e_list_to": to_list["name"],
-                        "f_card_url": card["shortUrl"]
-                    })
-            # Check for activated/deactivated cards
-            if "cards" in diff:
-                for cid in diff["cards"]:
-                    if cid.startswith("$"):
-                        continue
-                    if "idList" not in diff["cards"][cid]:
-                        continue
-                    if a["cards"][cid]["closed"] == b["cards"][cid]["closed"]:
-                        continue
-                    card = b["cards"][cid]
-                    in_list = b["lists"][diff["cards"][cid]["idList"][1]]
-                    result["open_change"].append({
-                        "a_name": card["name"],
-                        "b_closed": card["closed"],
-                        "c_list_in": in_list["name"],
-                        "d_card_url": card["shortUrl"]
-                    })
-            # Check for deleted cards
-            print diff.keys()
-            if "cards" in diff and "$delete" in diff["cards"]:
-                for cid in diff["cards"]["$delete"]:
-                    card = a["cards"][cid]
-                    from_list = a["lists"][card["idList"]]
-                    result["deleted_cards"].append({
-                        "a_name": card["name"],
-                        "b_list_from": from_list["name"],
-                        "c_card_url": card["shortUrl"]
-                    })
-
-            result_str = json.dumps(result, indent=4, sort_keys=True)
-            if sys.stdout.isatty():
-                print highlight(result_str, JsonLexer(), Terminal256Formatter())
-            else:
-                print result_str
             return 0
 
         if not self.args.everything:
@@ -206,11 +128,7 @@ class DiffMode(BaseCommand):
         if self.args.format == "jdiff":
             print diff
         elif self.args.format == "json":
-            diff_str = json.dumps(diff, indent=4, sort_keys=True)
-            if sys.stdout.isatty():
-                print highlight(diff_str, JsonLexer(), Terminal256Formatter())
-            else:
-                print diff_str
+            snapshots.json_highlight_print(diff)
         if self.args.format == "pretty":
             # py3 knows os.get_terminal_size(), but we need to guesstimate a width in py2
             try:

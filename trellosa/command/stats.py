@@ -4,12 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import json
 import logging
-from pygments import highlight
-from pygments.formatters import Terminal256Formatter
-from pygments.lexers import JsonLexer
-import sys
 
 from basecommand import BaseCommand
 import trellosa.snapshots as snapshots
@@ -37,9 +32,9 @@ class StatsMode(BaseCommand):
         """
 
         parser.add_argument("-s", "--snapshot",
-                            help="Reference snapshot (default: 0, online)",
+                            help="Reference snapshot (default: 1, latest)",
                             action="store",
-                            default="1")  # FIXME: make this 0
+                            default="1")
         parser.add_argument("-t", "--token",
                             help="Override Trello token",
                             action="store")
@@ -62,8 +57,14 @@ class StatsMode(BaseCommand):
 
         result = {}
 
+        # Just Focusing on trello for now
+        # TODO: implement Bugzilla stats
+        content = content["firefox_trello"]
+
         for lid in content["lists"]:
             if content["lists"][lid]["closed"] and not self.args.all:
+                continue
+            if content["lists"][lid]["name"].startswith("About:"):
                 continue
             sec_label_counts = {}
             num_cards = 0
@@ -87,8 +88,8 @@ class StatsMode(BaseCommand):
                         if l["name"] not in ["Security Triage: OK", "Security Triage: Action required"]:
                             logger.warning("Unknown label `%s` on card `%s`" % (l["name"], c["shortUrl"]))
                 if not has_sec_label:
-                    if "Fx60" in content["lists"][lid]["name"]:
-                        logger.warning("Card without security label: `%s` `%s`" % (c["name"], c["shortUrl"]))
+                    logger.warning("Card without security label in `%s`: `%s` `%s`"
+                                   % (content["lists"][lid]["name"][:20] + "...", c["name"], c["shortUrl"]))
 
             sec_ok = sec_label_counts["Security Triage: OK"] if "Security Triage: OK" in sec_label_counts else 0
             sec_action = sec_label_counts["Security Triage: Action required"] \
@@ -105,10 +106,6 @@ class StatsMode(BaseCommand):
                 "security_label_missing": sec_missing
             }
 
-        result_str = json.dumps(result, indent=4, sort_keys=True)
-        if sys.stdout.isatty():
-            print highlight(result_str, JsonLexer(), Terminal256Formatter())
-        else:
-            print result_str
+        snapshots.json_highlight_print(result)
 
         return 0

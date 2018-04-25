@@ -8,6 +8,7 @@ import logging
 from IPython import embed
 
 from basecommand import BaseCommand
+from trellosa.bugzilla import BugzillaClient
 from trellosa.trello import FirefoxTrello
 import trellosa.snapshots as snapshots
 import trellosa.tags as tags
@@ -33,34 +34,23 @@ class Shell(BaseCommand):
         :return: None
         """
 
-        parser.add_argument("-t", "--token",
-                            help="Override Trello token",
-                            action="store")
-
     def run(self):
-        user_token = read_token(self.args.workdir, override=self.args.token)
-        if user_token is None:
-            logger.warning("No token configured")
-
         snapshot_db = snapshots.SnapshotDB(self.args)
         tag_db = tags.TagsDB(self.args)
-        tr = FirefoxTrello(user_token=user_token, board_id=self.args.board)
 
-        user_token = read_token(self.args.workdir)
+        trello_token = read_token(self.args.workdir, token_type="trello")
+        if trello_token is None:
+            logger.critical("No Trello access token configured. Use `setup` command first")
+            raise Exception("Unable to continue without token")
+        tr = FirefoxTrello(user_token=trello_token)
 
-        if self.args.token is not None:
-            if tr.check_token(self.args.token, write=False):
-                logger.warning("Overriding default Trello token")
-                user_token = self.args.token
-            else:
-                logger.critical("Invalid token specified")
-                return 5
+        bz_token = read_token(self.args.workdir, token_type="bugzilla")
+        if bz_token is None:
+            logger.critical("No Bugzilla access token configured. Use `setup` command first")
+            raise Exception("Unable to continue without token")
+        bz = BugzillaClient(token=bz_token)
 
-        if user_token is None:
-            logger.critical("No Trello access token configured. Use `setup` command or `--token` argument")
-            return 5
-
-        tr.set_token(user_token)
+        snapshot = snapshots.get(self.args, snapshot_db, tag_db, "1")
 
         embed()
 

@@ -4,12 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import json
 import logging
-from pygments import highlight
-from pygments.formatters import Terminal256Formatter
-from pygments.lexers import JsonLexer
-import sys
 
 from basecommand import BaseCommand
 import trellosa.snapshots as snapshots
@@ -21,16 +16,16 @@ logger = logging.getLogger(__name__)
 
 class QueryMode(BaseCommand):
     """
-    Command for listing board snapshots
+    Command for querying Trello or Bugzilla IDs
     """
 
     name = "query"
-    help = "Query specific Trello IDs"
+    help = "Query specific Trello or Bugzilla IDs"
 
     @classmethod
     def setup_args(cls, parser):
         """
-        Add subparser for setup-specific arguments.
+        Add subparser for query-specific arguments.
 
         :param parser: parent argparser to add to
         :return: None
@@ -65,24 +60,23 @@ class QueryMode(BaseCommand):
         logger.debug("Looking for ID pattern `%s`" % tid)
 
         result = {}
-        for k in content:
-            logger.debug("Searching in `%s`" % k)
-            if tid in content[k]:
-                logger.debug("Direct hit for `%s` in `%s`" % (tid, k))
-                result = {k: {tid: content[k][tid]}}
-                break
-            for kk in content[k]:
-                logger.debug("Checking against `%s`" % kk)
-                if tid in kk:
-                    logger.debug("Matched `%s` in %s `%s`" % (tid, k, kk))
-                    if k not in result:
-                        result[k] = {}
-                    result[k][kk] = content[k][kk]
+        for p in content:
+            for k in content[p]:
+                logger.debug("Searching in `%s`" % k)
+                if tid in content[p][k]:
+                    logger.debug("Direct hit for `%s` in `%s`" % (tid, k))
+                    result = {p: {k: {tid: content[p][k][tid]}}}
+                    break
+                for kk in content[p][k]:
+                    logger.debug("Checking against `%s`" % kk)
+                    if tid in kk:
+                        logger.debug("Matched `%s` in %s `%s`" % (tid, k, kk))
+                        if p not in result:
+                            result[p] = {}
+                        if k not in result[p]:
+                            result[p][k] = {}
+                        result[p][k][kk] = content[p][k][kk]
 
-        result_str = json.dumps(result, indent=4, sort_keys=True)
-        if sys.stdout.isatty():
-            print highlight(result_str, JsonLexer(), Terminal256Formatter())
-        else:
-            print result_str
+        snapshots.json_highlight_print(result)
 
         return 0

@@ -4,12 +4,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import datetime
 import glob
 import gzip
 import json
 import logging
 import os
+from pygments import highlight
+from pygments.formatters import Terminal256Formatter
+from pygments.lexers import JsonLexer
+import sys
 
+from trellosa.bugzilla import BugzillaClient
 from trellosa.token import read_token
 from trellosa.trello import FirefoxTrello
 
@@ -147,16 +153,48 @@ def match(snapshot_db, tag_db, ref):
 
 
 def get(args, snapshot_db, tag_db, ref):
+    """Retrieve full snapshot state referenced by `ref`"""
     handle = match(snapshot_db, tag_db, ref)
     if handle is None:
         return None, None
 
     if handle == "online":
-        user_token = read_token(args.workdir, override=args.token)
-        if user_token is None:
-            logger.critical("No Trello access token configured. Use `setup` command or `--token` argument")
+        trello_token = read_token(args.workdir, token_type="trello")
+        if trello_token is None:
+            logger.critical("No Trello access token configured. Use `setup` command first")
             raise Exception("Unable to continue without token")
-        tr = FirefoxTrello(user_token=user_token, board_id=args.board)
-        return handle, tr.get_snapshot()
+        tr = FirefoxTrello(user_token=trello_token)
+
+        bz_token = read_token(args.workdir, token_type="bugzilla")
+        if bz_token is None:
+            logger.critical("No Bugzilla access token configured. Use `setup` command first")
+            raise Exception("Unable to continue without token")
+        bz = BugzillaClient(token=bz_token)
+
+        snapshot = {"firefox_trello": tr.get_snapshot(), "bugzilla": bz.get_snapshot()}
+
+        return handle, snapshot
+
     else:
-        return handle, json.loads(snapshot_db.read(handle))
+        snapshot = json.loads(snapshot_db.read(handle))
+        if "bugzilla" not in snapshot:
+            # Old-style snapshot without bugzilla data
+            snapshot = {"firefox_trello": snapshot, "bugzilla": None}
+        return handle, snapshot
+
+
+def store(snapshot_db, data, handle=None):
+    """Store snapshot data in snapshot db"""
+    if handle is None:
+        handle = datetime.datetime.utcnow().strftime("%Y-%m-%dZ%H-%M-%S")
+    data_str = json.dumps(data, sort_keys=True)
+    logger.info("Writing snapshot `%s`" % handle)
+    snapshot_db.write(handle, data_str)
+
+
+def json_highlight_print(json_data):
+    json_str = json.dumps(json_data, indent=4, sort_keys=True)
+    if sys.stdout.isatty():
+        print highlight(json_str, JsonLexer(), Terminal256Formatter()),
+    else:
+        print json_str
