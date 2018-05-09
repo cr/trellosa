@@ -85,6 +85,25 @@ class BugzillaClient(object):
 
         return DraftBug(self.URL, bugdata)
 
+    def update_bug(self, bugid=None, version=None, status=None, resolution=None):
+        if not bugid:
+            raise BaseException('invalid bug id specified')
+
+        bugdata = {
+            "id": bugid,
+            "api_key": self.token
+        }
+        if status and resolution:
+            bugdata['status'] = status
+            bugdata['resolution'] = resolution
+        if version:
+            # TODO  need to figure out if version number already exists…
+            # TODO  …if not we need to supply something like 'Trunk'
+            bugdata['version'] = "{} Branch".format(version)
+            bugdata['target_milestone'] = "Firefox {}".format(version)
+
+        return DraftBug(self.URL, bugdata)
+
 
 class DraftBug():
     def __init__(self, url, data):
